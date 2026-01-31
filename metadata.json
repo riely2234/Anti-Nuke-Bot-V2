@@ -1,0 +1,5 @@
+{
+  "name": "Copy of Basic Gemini App",
+  "description": "A simple web application to interact with the Google Gemini API. Enter a prompt and get a response from the model.",
+  "requestFramePermissions": []
+}

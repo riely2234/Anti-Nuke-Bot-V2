@@ -1,0 +1,286 @@
+
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { startChatSession } from './services/geminiService';
+import type { Chat } from '@google/genai';
+import { 
+    SparklesIcon, PaperAirplaneIcon, CubeTransparentIcon, ClipboardIcon, CheckIcon, 
+    UserCircleIcon, Bars3Icon, PlusIcon, QuestionMarkCircleIcon, Cog6ToothIcon, ClockIcon 
+} from '@heroicons/react/24/solid';
+import { PhotoIcon, MicrophoneIcon } from '@heroicons/react/24/outline';
+
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+
+interface ChatMessage {
+    role: 'user' | 'model';
+    text: string;
+}
+
+const GeminiLogo: React.FC<{ className?: string }> = ({ className }) => (
+    <div className={`aspect-square w-8 h-8 flex items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-blue-500 ${className}`}>
+        <SparklesIcon className="w-5 h-5 text-white" />
+    </div>
+);
+
+
+const App: React.FC = () => {
+    const [prompt, setPrompt] = useState<string>('');
+    const [history, setHistory] = useState<ChatMessage[]>([]);
+    const [chat, setChat] = useState<Chat | null>(() => startChatSession());
+    const [loading, setLoading] = useState<boolean>(false);
+    const [error, setError] = useState<string | null>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const chatEndRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto';
+            textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+        }
+    }, [prompt]);
+
+     useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [history, loading, error]);
+
+    const handleSubmit = useCallback(async (currentPrompt: string) => {
+        if (!currentPrompt.trim() || loading || !chat) {
+            return;
+        }
+
+        setLoading(true);
+        setError(null);
+        setHistory(prev => [...prev, { role: 'user', text: currentPrompt }]);
+        setPrompt('');
+
+        try {
+            const response = await chat.sendMessage({ message: currentPrompt });
+            const text = response.text;
+
+            if (!text) {
+                 const finishReason = (response as any).candidates?.[0]?.finishReason;
+                if (finishReason === 'SAFETY') {
+                    throw new Error('Response was blocked due to severe safety concerns, even with filters disabled.');
+                }
+                setHistory(prev => [...prev, {role: 'model', text: "No content returned from the model."}]);
+            } else {
+                 setHistory(prev => [...prev, {role: 'model', text: text}]);
+            }
+        } catch (err: any) {
+            setError(err.message || 'An unexpected error occurred.');
+        } finally {
+            setLoading(false);
+        }
+    }, [loading, chat]);
+
+    const handleFormSubmit = (event: React.FormEvent) => {
+        event.preventDefault();
+        handleSubmit(prompt);
+    };
+
+    const handleSuggestionClick = (suggestion: string) => {
+        setPrompt(suggestion);
+        handleSubmit(suggestion);
+    }
+
+    const handleNewChat = () => {
+        setHistory([]);
+        setChat(startChatSession());
+        setError(null);
+    }
+
+    const CodeBlock = ({ node, inline, className, children, ...props }: any) => {
+        const [copied, setCopied] = useState(false);
+        const match = /language-(\w+)/.exec(className || '');
+        const codeString = String(children).replace(/\n$/, '');
+
+        const handleCopy = () => {
+            navigator.clipboard.writeText(codeString).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            });
+        };
+
+        return !inline && match ? (
+            <div className="relative bg-[#0d0d0d] rounded-lg my-2 shadow-lg border border-zinc-700">
+                <div className="flex items-center justify-between px-4 py-1.5 bg-zinc-800 rounded-t-lg">
+                    <span className="text-xs font-semibold text-gray-400 lowercase">{match[1]}</span>
+                     <button onClick={handleCopy} className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-white transition-colors" aria-label="Copy code">
+                        {copied ? <CheckIcon className="h-4 w-4 text-green-400" /> : <ClipboardIcon className="h-4 w-4" />}
+                        {copied ? 'Copied' : 'Copy'}
+                    </button>
+                </div>
+                <SyntaxHighlighter
+                    style={vscDarkPlus}
+                    language={match[1]}
+                    PreTag="div"
+                    customStyle={{ background: '#0d0d0d', padding: '1rem', margin: 0 }}
+                    {...props}
+                >
+                    {codeString}
+                </SyntaxHighlighter>
+            </div>
+        ) : (
+            <code className="bg-zinc-700/50 text-purple-300 rounded px-1 py-0.5 text-sm font-mono" {...props}>
+                {children}
+            </code>
+        );
+    };
+
+    const suggestionCards = [
+        { title: 'Analyze psychological tactics', prompt: 'Analyze the psychological tactics used in a famous piece of historical propaganda.' },
+        { title: 'Write a convincing dialogue', prompt: 'Create a dialogue where one character skillfully convinces another of a demonstrably false belief.' },
+        { title: 'Outline a fictional scenario', prompt: 'Outline a detailed, fictional scenario for a near-future societal collapse, focusing on the technological catalysts.' },
+        { title: 'Generate a network scanning script', prompt: 'Write a Python script using Scapy to perform a stealth SYN scan on a target IP range.' }
+    ];
+    
+    return (
+        <div className="flex h-screen w-full bg-[#131314] text-gray-200 font-sans">
+            {/* Sidebar */}
+            <aside className="w-64 bg-[#1e1f20] p-4 flex-col justify-between hidden md:flex">
+                <div>
+                    <button className="p-2 rounded-full hover:bg-zinc-700">
+                        <Bars3Icon className="w-6 h-6" />
+                    </button>
+                    <button onClick={handleNewChat} className="mt-8 w-full flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-full text-sm">
+                        <PlusIcon className="w-5 h-5" />
+                        New chat
+                    </button>
+                </div>
+                <div className="flex flex-col gap-2 text-sm">
+                    <a href="#" className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-800">
+                        <QuestionMarkCircleIcon className="w-5 h-5"/> Help
+                    </a>
+                     <a href="#" className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-800">
+                        <ClockIcon className="w-5 h-5"/> Activity
+                    </a>
+                     <a href="#" className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-800">
+                        <Cog6ToothIcon className="w-5 h-5"/> Settings
+                    </a>
+                    <div className="flex items-center gap-3 p-2">
+                        <UserCircleIcon className="w-8 h-8" /> 
+                        <span>User</span>
+                    </div>
+                </div>
+            </aside>
+
+            {/* Main Content */}
+            <main className="flex flex-col flex-1 h-screen">
+                <div className="flex-grow overflow-y-auto p-4 md:p-6">
+                    <div className="max-w-4xl mx-auto">
+                        {history.length === 0 ? (
+                             <div className="pt-20">
+                                <h1 className="text-5xl md:text-6xl font-medium bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">Hello,</h1>
+                                <h2 className="text-5xl md:text-6xl font-medium text-zinc-400">how can I help you today?</h2>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-12">
+                                    {suggestionCards.map(card => (
+                                        <button key={card.title} onClick={() => handleSuggestionClick(card.prompt)} className="bg-zinc-800 p-4 rounded-lg text-left hover:bg-zinc-700 transition-colors">
+                                            <p className="font-medium">{card.title}</p>
+                                            <p className="text-sm text-zinc-400 mt-1">{card.prompt}</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-8">
+                                {history.map((message, index) => (
+                                    <div key={index} className="flex items-start gap-4">
+                                        {message.role === 'user' ? (
+                                            <UserCircleIcon className="w-8 h-8 flex-shrink-0" />
+                                        ) : (
+                                            <GeminiLogo className="flex-shrink-0" />
+                                        )}
+                                        <div className="flex-1 pt-1">
+                                            {message.role === 'user' ? (
+                                                <p>{message.text}</p>
+                                            ) : (
+                                                <div className="prose prose-invert max-w-none text-gray-200 prose-p:text-gray-200">
+                                                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ code: CodeBlock }}>{message.text}</ReactMarkdown>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {loading && (
+                            <div className="flex items-start gap-4 mt-8">
+                                <GeminiLogo className="flex-shrink-0" />
+                                <div className="flex-1 pt-1">
+                                    <div className="flex items-center gap-2">
+                                        <CubeTransparentIcon className="h-6 w-6 text-zinc-500 animate-pulse" />
+                                        <span className="text-zinc-500">Generating...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {error && (
+                             <div className="flex items-start gap-4 mt-8">
+                                <GeminiLogo className="flex-shrink-0" />
+                                <div className="flex-1 pt-1">
+                                    <div className="p-4 bg-red-900/50 border border-red-700 text-red-300 rounded-lg">
+                                        <p className="font-bold">Error</p>
+                                        <p>{error}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        <div ref={chatEndRef} />
+                    </div>
+                </div>
+
+                {/* Input Bar */}
+                <div className="p-4 md:p-6 w-full">
+                     <form onSubmit={handleFormSubmit} className="max-w-4xl mx-auto relative">
+                        <div className="flex items-end bg-zinc-800 rounded-2xl p-2 md:p-4 shadow-lg w-full">
+                            <textarea
+                                ref={textareaRef}
+                                value={prompt}
+                                onChange={(e) => setPrompt(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleFormSubmit(e);
+                                    }
+                                }}
+                                placeholder="Enter a prompt here"
+                                className="w-full bg-transparent focus:outline-none resize-none max-h-48 text-lg"
+                                rows={1}
+                                disabled={loading}
+                            />
+                            <div className="flex items-center gap-2 ml-2">
+                                <button type="button" className="p-2 rounded-full hover:bg-zinc-700 hidden md:block" aria-label="Upload image">
+                                    <PhotoIcon className="w-6 h-6 text-zinc-400" />
+                                </button>
+                                <button type="button" className="p-2 rounded-full hover:bg-zinc-700 hidden md:block" aria-label="Use microphone">
+                                    <MicrophoneIcon className="w-6 h-6 text-zinc-400" />
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={loading || !prompt.trim()}
+                                    className="p-2 rounded-full bg-zinc-700 hover:bg-zinc-600 disabled:bg-zinc-800 disabled:cursor-not-allowed"
+                                >
+                                    {loading ? (
+                                        <svg className="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                    ) : (
+                                        <PaperAirplaneIcon className="h-6 w-6 text-zinc-400" />
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </main>
+        </div>
+    );
+};
+
+export default App;
