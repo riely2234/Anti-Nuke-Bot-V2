@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,6 +6,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Basic Gemini App</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes fade-in-up {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .animate-fade-in-up {
+            animation: fade-in-up 0.5s ease-out forwards;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 1; }
+        }
+        .dot-1 { animation: pulse-dot 1.4s infinite ease-in-out; }
+        .dot-2 { animation: pulse-dot 1.4s infinite ease-in-out 0.2s; }
+        .dot-3 { animation: pulse-dot 1.4s infinite ease-in-out 0.4s; }
+    </style>
 <script type="importmap">
 {
   "imports": {

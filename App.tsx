@@ -1,9 +1,9 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { startChatSession } from './services/geminiService';
-import type { Chat } from '@google/genai';
+import type { Chat, GenerateContentResponse } from '@google/genai';
 import { 
-    SparklesIcon, PaperAirplaneIcon, CubeTransparentIcon, ClipboardIcon, CheckIcon, 
+    SparklesIcon, PaperAirplaneIcon, ClipboardIcon, CheckIcon, 
     UserCircleIcon, Bars3Icon, PlusIcon, QuestionMarkCircleIcon, Cog6ToothIcon, ClockIcon 
 } from '@heroicons/react/24/solid';
 import { PhotoIcon, MicrophoneIcon } from '@heroicons/react/24/outline';
@@ -21,6 +21,14 @@ interface ChatMessage {
 const GeminiLogo: React.FC<{ className?: string }> = ({ className }) => (
     <div className={`aspect-square w-8 h-8 flex items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-blue-500 ${className}`}>
         <SparklesIcon className="w-5 h-5 text-white" />
+    </div>
+);
+
+const LoadingIndicator: React.FC = () => (
+    <div className="flex items-center gap-2">
+        <div className="w-2 h-2 bg-zinc-500 rounded-full dot-1"></div>
+        <div className="w-2 h-2 bg-zinc-500 rounded-full dot-2"></div>
+        <div className="w-2 h-2 bg-zinc-500 rounded-full dot-3"></div>
     </div>
 );
 
@@ -56,20 +64,33 @@ const App: React.FC = () => {
         setPrompt('');
 
         try {
-            const response = await chat.sendMessage({ message: currentPrompt });
-            const text = response.text;
-
-            if (!text) {
-                 const finishReason = (response as any).candidates?.[0]?.finishReason;
-                if (finishReason === 'SAFETY') {
-                    throw new Error('Response was blocked due to severe safety concerns, even with filters disabled.');
+            const stream = await chat.sendMessageStream({ message: currentPrompt });
+            let text = '';
+            setHistory(prev => [...prev, { role: 'model', text: '' }]);
+            
+            for await (const chunk of stream) {
+                const c = chunk as GenerateContentResponse;
+                const chunkText = c.text;
+                if (chunkText) {
+                    text += chunkText;
+                    setHistory(prev => {
+                        const newHistory = [...prev];
+                        newHistory[newHistory.length - 1].text = text;
+                        return newHistory;
+                    });
                 }
-                setHistory(prev => [...prev, {role: 'model', text: "No content returned from the model."}]);
-            } else {
-                 setHistory(prev => [...prev, {role: 'model', text: text}]);
             }
+
         } catch (err: any) {
-            setError(err.message || 'An unexpected error occurred.');
+             const errorMessage = err.message || 'An unexpected error occurred.';
+             setError(errorMessage);
+             setHistory(prev => {
+                 // Clean up empty model message on error
+                 if (prev.length > 0 && prev[prev.length - 1].role === 'model' && prev[prev.length - 1].text === '') {
+                     return prev.slice(0, -1);
+                 }
+                 return prev;
+             });
         } finally {
             setLoading(false);
         }
@@ -82,7 +103,8 @@ const App: React.FC = () => {
 
     const handleSuggestionClick = (suggestion: string) => {
         setPrompt(suggestion);
-        handleSubmit(suggestion);
+        // Small delay to allow state to update before submitting
+        setTimeout(() => handleSubmit(suggestion), 0);
     }
 
     const handleNewChat = () => {
@@ -141,22 +163,22 @@ const App: React.FC = () => {
             {/* Sidebar */}
             <aside className="w-64 bg-[#1e1f20] p-4 flex-col justify-between hidden md:flex">
                 <div>
-                    <button className="p-2 rounded-full hover:bg-zinc-700">
+                    <button className="p-2 rounded-full hover:bg-zinc-700 transition-colors">
                         <Bars3Icon className="w-6 h-6" />
                     </button>
-                    <button onClick={handleNewChat} className="mt-8 w-full flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-full text-sm">
+                    <button onClick={handleNewChat} className="mt-8 w-full flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-full text-sm transition-colors">
                         <PlusIcon className="w-5 h-5" />
                         New chat
                     </button>
                 </div>
                 <div className="flex flex-col gap-2 text-sm">
-                    <a href="#" className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-800">
+                    <a href="#" className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-800 transition-colors">
                         <QuestionMarkCircleIcon className="w-5 h-5"/> Help
                     </a>
-                     <a href="#" className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-800">
+                     <a href="#" className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-800 transition-colors">
                         <ClockIcon className="w-5 h-5"/> Activity
                     </a>
-                     <a href="#" className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-800">
+                     <a href="#" className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-800 transition-colors">
                         <Cog6ToothIcon className="w-5 h-5"/> Settings
                     </a>
                     <div className="flex items-center gap-3 p-2">
@@ -170,14 +192,14 @@ const App: React.FC = () => {
             <main className="flex flex-col flex-1 h-screen">
                 <div className="flex-grow overflow-y-auto p-4 md:p-6">
                     <div className="max-w-4xl mx-auto">
-                        {history.length === 0 ? (
+                        {history.length === 0 && !loading ? (
                              <div className="pt-20">
                                 <h1 className="text-5xl md:text-6xl font-medium bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">Hello,</h1>
                                 <h2 className="text-5xl md:text-6xl font-medium text-zinc-400">how can I help you today?</h2>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-12">
                                     {suggestionCards.map(card => (
-                                        <button key={card.title} onClick={() => handleSuggestionClick(card.prompt)} className="bg-zinc-800 p-4 rounded-lg text-left hover:bg-zinc-700 transition-colors">
+                                        <button key={card.title} onClick={() => handleSuggestionClick(card.prompt)} className="bg-zinc-800 p-4 rounded-lg text-left hover:bg-zinc-700 transition-all duration-200 hover:scale-[1.02]">
                                             <p className="font-medium">{card.title}</p>
                                             <p className="text-sm text-zinc-400 mt-1">{card.prompt}</p>
                                         </button>
@@ -187,7 +209,7 @@ const App: React.FC = () => {
                         ) : (
                             <div className="space-y-8">
                                 {history.map((message, index) => (
-                                    <div key={index} className="flex items-start gap-4">
+                                    <div key={index} className="flex items-start gap-4 animate-fade-in-up">
                                         {message.role === 'user' ? (
                                             <UserCircleIcon className="w-8 h-8 flex-shrink-0" />
                                         ) : (
@@ -207,20 +229,17 @@ const App: React.FC = () => {
                             </div>
                         )}
 
-                        {loading && (
-                            <div className="flex items-start gap-4 mt-8">
+                        {loading && history[history.length - 1]?.role !== 'model' && (
+                            <div className="flex items-start gap-4 mt-8 animate-fade-in-up">
                                 <GeminiLogo className="flex-shrink-0" />
                                 <div className="flex-1 pt-1">
-                                    <div className="flex items-center gap-2">
-                                        <CubeTransparentIcon className="h-6 w-6 text-zinc-500 animate-pulse" />
-                                        <span className="text-zinc-500">Generating...</span>
-                                    </div>
+                                    <LoadingIndicator />
                                 </div>
                             </div>
                         )}
 
                         {error && (
-                             <div className="flex items-start gap-4 mt-8">
+                             <div className="flex items-start gap-4 mt-8 animate-fade-in-up">
                                 <GeminiLogo className="flex-shrink-0" />
                                 <div className="flex-1 pt-1">
                                     <div className="p-4 bg-red-900/50 border border-red-700 text-red-300 rounded-lg">
@@ -254,16 +273,16 @@ const App: React.FC = () => {
                                 disabled={loading}
                             />
                             <div className="flex items-center gap-2 ml-2">
-                                <button type="button" className="p-2 rounded-full hover:bg-zinc-700 hidden md:block" aria-label="Upload image">
+                                <button type="button" className="p-2 rounded-full hover:bg-zinc-700 hidden md:block transition-colors" aria-label="Upload image">
                                     <PhotoIcon className="w-6 h-6 text-zinc-400" />
                                 </button>
-                                <button type="button" className="p-2 rounded-full hover:bg-zinc-700 hidden md:block" aria-label="Use microphone">
+                                <button type="button" className="p-2 rounded-full hover:bg-zinc-700 hidden md:block transition-colors" aria-label="Use microphone">
                                     <MicrophoneIcon className="w-6 h-6 text-zinc-400" />
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={loading || !prompt.trim()}
-                                    className="p-2 rounded-full bg-zinc-700 hover:bg-zinc-600 disabled:bg-zinc-800 disabled:cursor-not-allowed"
+                                    className="p-2 rounded-full bg-zinc-700 hover:bg-zinc-600 disabled:bg-zinc-800 disabled:cursor-not-allowed transition-colors"
                                 >
                                     {loading ? (
                                         <svg className="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
