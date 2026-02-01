@@ -79,7 +79,7 @@ const ApiKeyInput: React.FC<{ onApiKeySubmit: (key: string) => void }> = ({ onAp
 };
 
 
-const ChatInterface: React.FC<{ apiKey: string }> = ({ apiKey }) => {
+const ChatInterface: React.FC<{ apiKey: string; onChangeApiKey: () => void }> = ({ apiKey, onChangeApiKey }) => {
     const [prompt, setPrompt] = useState<string>('');
     const [history, setHistory] = useState<ChatMessage[]>([]);
     const [chat, setChat] = useState<Chat | null>(null);
@@ -237,10 +237,10 @@ const ChatInterface: React.FC<{ apiKey: string }> = ({ apiKey }) => {
                      <a href="#" className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-800 transition-colors">
                         <ClockIcon className="w-5 h-5"/> Activity
                     </a>
-                     <a href="#" className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-800 transition-colors">
-                        <Cog6ToothIcon className="w-5 h-5"/> Settings
-                    </a>
-                    <div className="flex items-center gap-3 p-2">
+                    <button onClick={onChangeApiKey} className="w-full text-left flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-800 transition-colors">
+                        <KeyIcon className="w-5 h-5"/> Change API Key
+                    </button>
+                    <div className="flex items-center gap-3 p-2 mt-4">
                         <UserCircleIcon className="w-8 h-8" /> 
                         <span>User</span>
                     </div>
@@ -357,21 +357,26 @@ const ChatInterface: React.FC<{ apiKey: string }> = ({ apiKey }) => {
 };
 
 const App: React.FC = () => {
-    const [apiKey, setApiKey] = useState<string | null>(null);
-
-    useEffect(() => {
-        const storedKey = localStorage.getItem('gemini-api-key');
-        if (storedKey) {
-            setApiKey(storedKey);
-        }
-    }, []);
+    const [apiKey, setApiKey] = useState<string | null>(() => localStorage.getItem('gemini-api-key'));
+    const [showKeyInput, setShowKeyInput] = useState(false);
 
     const handleApiKeySubmit = (key: string) => {
         localStorage.setItem('gemini-api-key', key);
         setApiKey(key);
+        setShowKeyInput(false);
     };
 
-    return apiKey ? <ChatInterface apiKey={apiKey} /> : <ApiKeyInput onApiKeySubmit={handleApiKeySubmit} />;
+    const handleChangeApiKey = () => {
+        setShowKeyInput(true);
+    };
+
+    if (showKeyInput) {
+        return <ApiKeyInput onApiKeySubmit={handleApiKeySubmit} />;
+    }
+
+    const effectiveKey = apiKey || 'AIzaSyBystK8d1hGsyx3Y9fpvh9vycMTwTdj9uc';
+
+    return <ChatInterface apiKey={effectiveKey} onChangeApiKey={handleChangeApiKey} />;
 };
 
 export default App;
