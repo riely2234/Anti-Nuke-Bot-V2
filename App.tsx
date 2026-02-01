@@ -303,8 +303,7 @@ const App: React.FC = () => {
         const storedSettings = localStorage.getItem('gemini-settings');
         return storedSettings ? JSON.parse(storedSettings) : DEFAULT_SETTINGS;
     });
-    const [showKeyInput, setShowKeyInput] = useState(false);
-
+    
     useEffect(() => {
         localStorage.setItem('gemini-settings', JSON.stringify(settings));
     }, [settings]);
@@ -312,18 +311,18 @@ const App: React.FC = () => {
     const handleApiKeySubmit = (key: string) => {
         localStorage.setItem('gemini-api-key', key);
         setApiKey(key);
-        setShowKeyInput(false);
     };
 
-    const handleChangeApiKey = () => setShowKeyInput(true);
+    const handleChangeApiKey = () => {
+        setApiKey(null);
+        localStorage.removeItem('gemini-api-key');
+    };
 
-    if (showKeyInput) {
+    if (!apiKey) {
         return <ApiKeyInput onApiKeySubmit={handleApiKeySubmit} />;
     }
-
-    const effectiveKey = apiKey || 'AIzaSyBystK8d1hGsyx3Y9fpvh9vycMTwTdj9uc';
     
-    return <ChatInterface apiKey={effectiveKey} settings={settings} onSettingsSave={setSettings} onChangeApiKey={handleChangeApiKey} />;
+    return <ChatInterface apiKey={apiKey} settings={settings} onSettingsSave={setSettings} onChangeApiKey={handleChangeApiKey} />;
 };
 
 export default App;
