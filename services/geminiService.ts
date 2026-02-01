@@ -1,16 +1,15 @@
 
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold, SafetySetting, Chat } from "@google/genai";
 
-const getAiClient = () => {
-    const apiKey = process.env.API_KEY;
+const getAiClient = (apiKey: string) => {
     if (!apiKey) {
-        throw new Error("The API_KEY environment variable is missing. Please add it to your deployment settings.");
+        throw new Error("The API_KEY is missing. Please provide a valid API key.");
     }
     return new GoogleGenAI({ apiKey });
 }
 
-export const startChatSession = (): Chat => {
-    const ai = getAiClient();
+export const startChatSession = (apiKey: string): Chat => {
+    const ai = getAiClient(apiKey);
     
     // Safety settings are permanently set to BLOCK_NONE for an unfiltered experience.
     const safetySettings: SafetySetting[] = [

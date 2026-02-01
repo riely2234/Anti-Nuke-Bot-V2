@@ -4,7 +4,8 @@ import { startChatSession } from './services/geminiService';
 import type { Chat, GenerateContentResponse } from '@google/genai';
 import { 
     SparklesIcon, PaperAirplaneIcon, ClipboardIcon, CheckIcon, 
-    UserCircleIcon, Bars3Icon, PlusIcon, QuestionMarkCircleIcon, Cog6ToothIcon, ClockIcon 
+    UserCircleIcon, Bars3Icon, PlusIcon, QuestionMarkCircleIcon, Cog6ToothIcon, ClockIcon,
+    ArrowRightIcon, KeyIcon
 } from '@heroicons/react/24/solid';
 import { PhotoIcon, MicrophoneIcon } from '@heroicons/react/24/outline';
 
@@ -32,8 +33,53 @@ const LoadingIndicator: React.FC = () => (
     </div>
 );
 
+const ApiKeyInput: React.FC<{ onApiKeySubmit: (key: string) => void }> = ({ onApiKeySubmit }) => {
+    const [key, setKey] = useState('');
 
-const App: React.FC = () => {
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (key.trim()) {
+            onApiKeySubmit(key.trim());
+        }
+    };
+
+    return (
+        <div className="flex items-center justify-center h-screen w-full bg-[#131314] text-gray-200 font-sans">
+            <div className="w-full max-w-md p-8 bg-[#1e1f20] rounded-2xl shadow-2xl text-center">
+                <KeyIcon className="w-12 h-12 mx-auto text-purple-400" />
+                <h1 className="text-2xl font-bold mt-4">Enter your Gemini API Key</h1>
+                <p className="text-zinc-400 mt-2 text-sm">
+                    To use this app, you need a Google Gemini API key. It will be saved securely in your browser's local storage.
+                </p>
+                <form onSubmit={handleSubmit} className="mt-6">
+                    <input
+                        type="password"
+                        value={key}
+                        onChange={(e) => setKey(e.target.value)}
+                        placeholder="Paste your API key here"
+                        className="w-full bg-zinc-800 rounded-lg px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                    <button
+                        type="submit"
+                        disabled={!key.trim()}
+                        className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-zinc-700 disabled:cursor-not-allowed text-white font-semibold rounded-lg px-4 py-3 mt-4 transition-colors"
+                    >
+                        Continue <ArrowRightIcon className="w-5 h-5" />
+                    </button>
+                </form>
+                <p className="text-xs text-zinc-500 mt-6">
+                    Don't have a key? Get one from{' '}
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline">
+                        Google AI Studio
+                    </a>.
+                </p>
+            </div>
+        </div>
+    );
+};
+
+
+const ChatInterface: React.FC<{ apiKey: string }> = ({ apiKey }) => {
     const [prompt, setPrompt] = useState<string>('');
     const [history, setHistory] = useState<ChatMessage[]>([]);
     const [chat, setChat] = useState<Chat | null>(null);
@@ -44,11 +90,12 @@ const App: React.FC = () => {
 
     useEffect(() => {
         try {
-            setChat(startChatSession());
+            setError(null);
+            setChat(startChatSession(apiKey));
         } catch (e: any) {
             setError(e.message);
         }
-    }, []);
+    }, [apiKey]);
 
     useEffect(() => {
         if (textareaRef.current) {
@@ -96,7 +143,6 @@ const App: React.FC = () => {
              const errorMessage = err.message || 'An unexpected error occurred.';
              setError(errorMessage);
              setHistory(prev => {
-                 // Clean up empty model message on error
                  if (prev.length > 0 && prev[prev.length - 1].role === 'model' && prev[prev.length - 1].text === '') {
                      return prev.slice(0, -1);
                  }
@@ -114,7 +160,6 @@ const App: React.FC = () => {
 
     const handleSuggestionClick = (suggestion: string) => {
         setPrompt(suggestion);
-        // Small delay to allow state to update before submitting
         setTimeout(() => handleSubmit(suggestion), 0);
     }
 
@@ -122,7 +167,7 @@ const App: React.FC = () => {
         setHistory([]);
         setError(null);
         try {
-            setChat(startChatSession());
+            setChat(startChatSession(apiKey));
         } catch (e: any) {
             setError(e.message);
         }
@@ -175,7 +220,6 @@ const App: React.FC = () => {
     
     return (
         <div className="flex h-screen w-full bg-[#131314] text-gray-200 font-sans">
-            {/* Sidebar */}
             <aside className="w-64 bg-[#1e1f20] p-4 flex-col justify-between hidden md:flex">
                 <div>
                     <button className="p-2 rounded-full hover:bg-zinc-700 transition-colors">
@@ -203,7 +247,6 @@ const App: React.FC = () => {
                 </div>
             </aside>
 
-            {/* Main Content */}
             <main className="flex flex-col flex-1 h-screen">
                 <div className="flex-grow overflow-y-auto p-4 md:p-6">
                     <div className="max-w-4xl mx-auto">
@@ -254,11 +297,10 @@ const App: React.FC = () => {
                         )}
 
                         {error && (
-                             <div className="flex items-start gap-4 mt-8 animate-fade-in-up max-w-4xl mx-auto pt-20">
+                             <div className="flex items-start gap-4 mt-8 animate-fade-in-up max-w-4xl mx-auto">
                                 <div className="p-4 bg-red-900/50 border border-red-700 text-red-300 rounded-lg w-full">
                                     <p className="font-bold text-lg">An Error Occurred</p>
                                     <p className="mt-2">{error}</p>
-                                    <p className="text-sm text-red-400 mt-4">Please ensure your API key is correctly configured in your environment variables and that you have enabled the Generative Language API in your Google Cloud project.</p>
                                 </div>
                             </div>
                         )}
@@ -266,7 +308,6 @@ const App: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Input Bar */}
                 <div className="p-4 md:p-6 w-full">
                      <form onSubmit={handleFormSubmit} className="max-w-4xl mx-auto relative">
                         <div className="flex items-end bg-zinc-800 rounded-2xl p-2 md:p-4 shadow-lg w-full">
@@ -313,6 +354,24 @@ const App: React.FC = () => {
             </main>
         </div>
     );
+};
+
+const App: React.FC = () => {
+    const [apiKey, setApiKey] = useState<string | null>(null);
+
+    useEffect(() => {
+        const storedKey = localStorage.getItem('gemini-api-key');
+        if (storedKey) {
+            setApiKey(storedKey);
+        }
+    }, []);
+
+    const handleApiKeySubmit = (key: string) => {
+        localStorage.setItem('gemini-api-key', key);
+        setApiKey(key);
+    };
+
+    return apiKey ? <ChatInterface apiKey={apiKey} /> : <ApiKeyInput onApiKeySubmit={handleApiKeySubmit} />;
 };
 
 export default App;
