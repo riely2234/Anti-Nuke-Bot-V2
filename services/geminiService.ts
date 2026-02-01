@@ -8,10 +8,10 @@ const getAiClient = (apiKey: string) => {
     return new GoogleGenAI({ apiKey });
 }
 
-export const startChatSession = (apiKey: string, model: string, systemInstruction: string): Chat => {
+export const startChatSession = (apiKey: string, systemInstruction: string): Chat => {
     const ai = getAiClient(apiKey);
     
-    // Safety settings are permanently set to BLOCK_NONE for an unfiltered experience.
+    // Safety settings are configured to block nothing.
     const safetySettings: SafetySetting[] = [
         {
             category: HarmCategory.HARM_CATEGORY_HARASSMENT,
@@ -32,7 +32,7 @@ export const startChatSession = (apiKey: string, model: string, systemInstructio
     ];
 
     const chat = ai.chats.create({
-        model: model,
+        model: 'gemini-3-pro-preview',
         config: {
             safetySettings: safetySettings,
             systemInstruction: systemInstruction,
