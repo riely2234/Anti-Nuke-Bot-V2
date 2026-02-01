@@ -36,11 +36,19 @@ const LoadingIndicator: React.FC = () => (
 const App: React.FC = () => {
     const [prompt, setPrompt] = useState<string>('');
     const [history, setHistory] = useState<ChatMessage[]>([]);
-    const [chat, setChat] = useState<Chat | null>(() => startChatSession());
+    const [chat, setChat] = useState<Chat | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const chatEndRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        try {
+            setChat(startChatSession());
+        } catch (e: any) {
+            setError(e.message);
+        }
+    }, []);
 
     useEffect(() => {
         if (textareaRef.current) {
@@ -55,6 +63,9 @@ const App: React.FC = () => {
 
     const handleSubmit = useCallback(async (currentPrompt: string) => {
         if (!currentPrompt.trim() || loading || !chat) {
+            if (!chat) {
+                setError("Chat session is not initialized. Please check your API key.");
+            }
             return;
         }
 
@@ -109,8 +120,12 @@ const App: React.FC = () => {
 
     const handleNewChat = () => {
         setHistory([]);
-        setChat(startChatSession());
         setError(null);
+        try {
+            setChat(startChatSession());
+        } catch (e: any) {
+            setError(e.message);
+        }
     }
 
     const CodeBlock = ({ node, inline, className, children, ...props }: any) => {
@@ -192,7 +207,7 @@ const App: React.FC = () => {
             <main className="flex flex-col flex-1 h-screen">
                 <div className="flex-grow overflow-y-auto p-4 md:p-6">
                     <div className="max-w-4xl mx-auto">
-                        {history.length === 0 && !loading ? (
+                        {history.length === 0 && !loading && !error ? (
                              <div className="pt-20">
                                 <h1 className="text-5xl md:text-6xl font-medium bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">Hello,</h1>
                                 <h2 className="text-5xl md:text-6xl font-medium text-zinc-400">how can I help you today?</h2>
@@ -239,13 +254,11 @@ const App: React.FC = () => {
                         )}
 
                         {error && (
-                             <div className="flex items-start gap-4 mt-8 animate-fade-in-up">
-                                <GeminiLogo className="flex-shrink-0" />
-                                <div className="flex-1 pt-1">
-                                    <div className="p-4 bg-red-900/50 border border-red-700 text-red-300 rounded-lg">
-                                        <p className="font-bold">Error</p>
-                                        <p>{error}</p>
-                                    </div>
+                             <div className="flex items-start gap-4 mt-8 animate-fade-in-up max-w-4xl mx-auto pt-20">
+                                <div className="p-4 bg-red-900/50 border border-red-700 text-red-300 rounded-lg w-full">
+                                    <p className="font-bold text-lg">An Error Occurred</p>
+                                    <p className="mt-2">{error}</p>
+                                    <p className="text-sm text-red-400 mt-4">Please ensure your API key is correctly configured in your environment variables and that you have enabled the Generative Language API in your Google Cloud project.</p>
                                 </div>
                             </div>
                         )}
@@ -270,7 +283,7 @@ const App: React.FC = () => {
                                 placeholder="Enter a prompt here"
                                 className="w-full bg-transparent focus:outline-none resize-none max-h-48 text-lg"
                                 rows={1}
-                                disabled={loading}
+                                disabled={loading || !!error}
                             />
                             <div className="flex items-center gap-2 ml-2">
                                 <button type="button" className="p-2 rounded-full hover:bg-zinc-700 hidden md:block transition-colors" aria-label="Upload image">
@@ -281,7 +294,7 @@ const App: React.FC = () => {
                                 </button>
                                 <button
                                     type="submit"
-                                    disabled={loading || !prompt.trim()}
+                                    disabled={loading || !prompt.trim() || !!error}
                                     className="p-2 rounded-full bg-zinc-700 hover:bg-zinc-600 disabled:bg-zinc-800 disabled:cursor-not-allowed transition-colors"
                                 >
                                     {loading ? (
