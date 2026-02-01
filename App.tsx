@@ -108,6 +108,33 @@ const SettingsModal: React.FC<{
     );
 };
 
+const UserModal: React.FC<{
+    onClose: () => void;
+    onSignOut: () => void;
+}> = ({ onClose, onSignOut }) => {
+    return (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center animate-fade-in-up" style={{ animationDuration: '0.2s' }}>
+            <div className="bg-[#1e1f20] rounded-2xl shadow-2xl w-full max-w-sm border border-zinc-700 overflow-hidden">
+                <div className="p-4 border-b border-zinc-700 flex justify-between items-center">
+                    <h3 className="font-semibold text-zinc-200">Account</h3>
+                    <button onClick={onClose} className="text-zinc-400 hover:text-white"><XMarkIcon className="w-5 h-5" /></button>
+                </div>
+                <div className="p-6 flex flex-col items-center">
+                    <div className="w-20 h-20 bg-zinc-800/80 rounded-full flex items-center justify-center mb-4">
+                        <UserCircleIcon className="w-14 h-14 text-zinc-400" />
+                    </div>
+                    <p className="text-zinc-300 font-medium mb-1">Guest User</p>
+                    <p className="text-zinc-500 text-sm text-center mb-6">You are signed in using a locally stored API key.</p>
+                    <button onClick={onSignOut} className="w-full py-2.5 px-4 bg-zinc-800 hover:bg-red-900/30 hover:text-red-400 text-zinc-300 rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2">
+                         <ArrowRightIcon className="w-4 h-4 rotate-180" />
+                        Sign Out
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const CodeBlock = ({ node, inline, className, children, ...props }: any) => {
     const [copied, setCopied] = useState(false);
     const match = /language-(\w+)/.exec(className || '');
@@ -145,6 +172,7 @@ const ChatInterface: React.FC<{
     const [error, setError] = useState<string | null>(null);
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const [isSettingsOpen, setSettingsOpen] = useState(false);
+    const [isUserModalOpen, setUserModalOpen] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -227,7 +255,10 @@ const ChatInterface: React.FC<{
                 <a href="https://ai.google.dev/gemini-api/docs" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-800 transition-colors"><QuestionMarkCircleIcon className="w-5 h-5"/> Help</a>
                 <a href="#" className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-800 transition-colors"><ClockIcon className="w-5 h-5"/> Activity</a>
                 <button onClick={() => { setSettingsOpen(true); setSidebarOpen(false); }} className="w-full text-left flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-800 transition-colors"><Cog6ToothIcon className="w-5 h-5"/> Settings</button>
-                <div className="flex items-center gap-3 p-2 mt-4"><UserCircleIcon className="w-8 h-8" /> <span>User</span></div>
+                <button onClick={() => { setUserModalOpen(true); setSidebarOpen(false); }} className="w-full text-left flex items-center gap-3 p-2 mt-4 rounded-lg hover:bg-zinc-800 transition-colors">
+                    <UserCircleIcon className="w-8 h-8 text-zinc-400" /> 
+                    <span>User</span>
+                </button>
             </div>
         </div>
     );
@@ -235,6 +266,7 @@ const ChatInterface: React.FC<{
     return (
         <div className="flex h-screen w-full bg-[#131314] text-gray-200 font-sans">
             {isSettingsOpen && <SettingsModal initialSettings={settings} onSave={onSettingsSave} onClose={() => setSettingsOpen(false)} onChangeApiKey={() => { setSettingsOpen(false); onChangeApiKey(); }} />}
+            {isUserModalOpen && <UserModal onClose={() => setUserModalOpen(false)} onSignOut={() => { setUserModalOpen(false); onChangeApiKey(); }} />}
             {isSidebarOpen && <div onClick={() => setSidebarOpen(false)} className="fixed inset-0 bg-black/50 z-10 md:hidden"></div>}
             
             <aside className={`w-64 bg-[#1e1f20] p-2 flex-col fixed inset-y-0 left-0 z-20 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out md:relative md:translate-x-0 md:flex`}>
